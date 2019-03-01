@@ -23,7 +23,7 @@ import io.reactivex.schedulers.Schedulers;
 public class MainActivity extends AppCompatActivity {
 
     Observable<String> carsObservable;
-    Disposable mDisposable;
+    CompositeDisposable mCompositeDisposable=new CompositeDisposable();
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -40,39 +40,62 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
 
-       carsObservable.observeOn(Schedulers.io())
-                    .subscribeOn(AndroidSchedulers.mainThread())
+        mCompositeDisposable.add(
+                carsObservable.observeOn(Schedulers.io())
+                        .subscribeOn(AndroidSchedulers.mainThread())
                         .filter(s-> s.startsWith("M"))
-                .subscribe(new Observer<String>() {
-                    @Override
-                    public void onSubscribe(Disposable d) {
-                        mDisposable=d;
-                    }
-
-                    @Override
-                    public void onNext(String s) {
-                        Log.d("" +getClass().getName(), ""+s);
-                        Toast.makeText(MainActivity.this, ""+s, Toast.LENGTH_SHORT).show();
-                    }
-
-                    @Override
-                    public void onError(Throwable e) {
-
-                    }
-
-                    @Override
-                    public void onComplete() {
-
-                    }
-                });
+                        .subscribeWith(new DisposableObserver<String>() {
 
 
+                            @Override
+                            public void onNext(String s) {
+                                Log.d("" +getClass().getName(), ""+s);
+
+                                /*Toast won't work because it's runs on a thread*/
+                                //               Toast.makeText(MainActivity.this, ""+s, Toast.LENGTH_SHORT).show();
+                            }
+
+                            @Override
+                            public void onError(Throwable e) {
+
+                            }
+
+                            @Override
+                            public void onComplete() {
+                                Log.d("" +getClass().getName(), "Completed-1");
+                            }
+                        })
+        );
+
+
+        mCompositeDisposable.add(
+                carsObservable.observeOn(Schedulers.io())
+                        .subscribeOn(AndroidSchedulers.mainThread())
+                        .map(s-> "cars: "+ s +"" )
+                        .subscribeWith(new DisposableObserver<String>() {
+                            @Override
+                            public void onNext(String s) {
+                                Log.d("" +getClass().getName(), ""+s);
+                            }
+
+                            @Override
+                            public void onError(Throwable e) {
+
+                            }
+
+                            @Override
+                            public void onComplete() {
+                                Log.d("" +getClass().getName(), "Completed-2");
+                            }
+                        })
+        );
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
 
-      mDisposable.dispose();
+        mCompositeDisposable.clear();
     }
+
 }
